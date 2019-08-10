@@ -83,7 +83,7 @@ public class ExtensionLoader<T> {
     // ==============================
 
     private final Class<?> type;
-
+    //
     private final ExtensionFactory objectFactory;
 
     private final ConcurrentMap<Class<?>, String> cachedNames = new ConcurrentHashMap<>();
@@ -103,6 +103,7 @@ public class ExtensionLoader<T> {
 
     private ExtensionLoader(Class<?> type) {
         this.type = type;
+        // ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension() 是自适应扩展点
         objectFactory = (type == ExtensionFactory.class ? null : ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());
     }
 
@@ -122,9 +123,10 @@ public class ExtensionLoader<T> {
             throw new IllegalArgumentException("Extension type (" + type +
                     ") is not an extension, because it is NOT annotated with @" + SPI.class.getSimpleName() + "!");
         }
-
+        // EXTENSION_LOADERS 缓存
         ExtensionLoader<T> loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         if (loader == null) {
+            // 把type = Protocol.class ->(对应的) ExtensionLoader 放到 EXTENSION_LOADERS这个ConcurrentHashMap中
             EXTENSION_LOADERS.putIfAbsent(type, new ExtensionLoader<T>(type));
             loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         }
@@ -309,6 +311,7 @@ public class ExtensionLoader<T> {
     private Holder<Object> getOrCreateHolder(String name) {
         Holder<Object> holder = cachedInstances.get(name);
         if (holder == null) {
+            // 缓存 name 对应的实例
             cachedInstances.putIfAbsent(name, new Holder<>());
             holder = cachedInstances.get(name);
         }
@@ -339,16 +342,21 @@ public class ExtensionLoader<T> {
         if (StringUtils.isEmpty(name)) {
             throw new IllegalArgumentException("Extension name == null");
         }
+        // name = true 的时候，使用默认扩展点
         if ("true".equals(name)) {
+            // 默认扩展点
             return getDefaultExtension();
         }
+        // Holder可以认为也是一种缓存
         final Holder<Object> holder = getOrCreateHolder(name);
         Object instance = holder.get();
         if (instance == null) {
             synchronized (holder) {
                 instance = holder.get();
                 if (instance == null) {
+                    // instance 是 myProtocol对应的实例
                     instance = createExtension(name);
+                    // 获取实例后，把 myProtocol对应的实例 放到缓存里面
                     holder.set(instance);
                 }
             }
@@ -522,6 +530,7 @@ public class ExtensionLoader<T> {
 
     @SuppressWarnings("unchecked")
     private T createExtension(String name) {
+        // clazz：对应myProtocol对应的class
         Class<?> clazz = getExtensionClasses().get(name);
         if (clazz == null) {
             throw findException(name);
@@ -699,7 +708,9 @@ public class ExtensionLoader<T> {
                             String name = null;
                             int i = line.indexOf('=');
                             if (i > 0) {
+                                // name -> myProtocol
                                 name = line.substring(0, i).trim();
+                                // line -> value
                                 line = line.substring(i + 1).trim();
                             }
                             if (line.length() > 0) {
