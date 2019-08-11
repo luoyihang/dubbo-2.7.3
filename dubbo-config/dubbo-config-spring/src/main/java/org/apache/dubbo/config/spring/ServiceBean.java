@@ -106,11 +106,14 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
     }
 
     @Override
+    // 监听 spring 上下文被刷新或者加载的时候触发
     public void onApplicationEvent(ContextRefreshedEvent event) {
+        // isExported 是否已经发布
         if (!isExported() && !isUnexported()) {
             if (logger.isInfoEnabled()) {
                 logger.info("The service ready on spring started. service: " + getInterface());
             }
+            // 发布
             export();
         }
     }

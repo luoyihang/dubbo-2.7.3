@@ -159,6 +159,7 @@ public class RegistryProtocol implements Protocol {
         this.cluster = cluster;
     }
 
+    // set方法设置一个依赖扩展点（默认是DubboProtocol）
     public void setProtocol(Protocol protocol) {
         this.protocol = protocol;
     }
@@ -190,25 +191,36 @@ public class RegistryProtocol implements Protocol {
         registry.unregister(registeredProviderUrl);
     }
 
+    // 实现服务的注册和发布
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
+        // registryUrl = zookeeper://ip:port...
+        // 注册中心的地址
         URL registryUrl = getRegistryUrl(originInvoker);
         // url to export locally
+        // providerUrl = dubbo://ip:port/....
+        // 要发布到注册中心的 URL 地址
         URL providerUrl = getProviderUrl(originInvoker);
 
         // Subscribe the override data
         // FIXME When the provider subscribes, it will affect the scene : a certain JVM exposes the service and call
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
+        // 重写URL的，在dubbo admin 改了配置后，需要重新发布URL
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
 
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
+
+
+        // ————————————————————————————————————————————————————————————————————-
         //export invoker
+        // doLocalExport 本质是 如果默认是dubbo协议的话，启动一个netty服务
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
+        // 将 dubbo://ip:port/ URL注册到 注册中心上
         final Registry registry = getRegistry(originInvoker);
         final URL registeredProviderUrl = getRegisteredProviderUrl(providerUrl, registryUrl);
         ProviderInvokerWrapper<T> providerInvokerWrapper = ProviderConsumerRegTable.registerProvider(originInvoker,
@@ -239,9 +251,16 @@ public class RegistryProtocol implements Protocol {
     @SuppressWarnings("unchecked")
     private <T> ExporterChangeableWrapper<T> doLocalExport(final Invoker<T> originInvoker, URL providerUrl) {
         String key = getCacheKey(originInvoker);
-
+        // bounds 是一个ConcurrentHashMap
         return (ExporterChangeableWrapper<T>) bounds.computeIfAbsent(key, s -> {
+            // 1. originInvoker 是从前面 serviceConfig 中 invoker 包装过的 DelegateProviderMetaDataInvoker(invoker, this)
+            // 2. invokerDelegate 再对 originInvoker 进行包装，InvokerDelegate(originInvoker)
             Invoker<?> invokerDelegate = new InvokerDelegate<>(originInvoker, providerUrl);
+            // 1.protocol.export(invokerDelegate) 才是真正的服务发布
+            // 2.protocol = Protocol$Adaptive
+            //      在Protocol$Adaptive 返回 QosProtocolWrapper(ProtocolListenerWrapper(ProtocolFilterWrapper(DubboProtocol)))
+            // 3.protocol.export 最后调用的是 DubboProtocol.export(自己配置的<dubbo:service protocol="dubbo">)
+            //      中间还会调用 QosProtocolWrapper(运维增强).export、ProtocolFilterWrapper(过滤器增强).export
             return new ExporterChangeableWrapper<>((Exporter<T>) protocol.export(invokerDelegate), originInvoker);
         });
     }
@@ -301,7 +320,9 @@ public class RegistryProtocol implements Protocol {
     private URL getRegistryUrl(Invoker<?> originInvoker) {
         URL registryUrl = originInvoker.getUrl();
         if (REGISTRY_PROTOCOL.equals(registryUrl.getProtocol())) {
+            // zookeeper://ip:port
             String protocol = registryUrl.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY);
+            // 将 registryUrl 的URL设置成 zookeeper://ip:port
             registryUrl = registryUrl.setProtocol(protocol).removeParameter(REGISTRY_KEY);
         }
         return registryUrl;

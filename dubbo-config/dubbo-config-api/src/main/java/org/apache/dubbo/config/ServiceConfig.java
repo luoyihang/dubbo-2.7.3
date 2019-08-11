@@ -59,6 +59,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.dubbo.common.constants.CommonConstants.ANYHOST_KEY;
@@ -116,6 +117,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
      * Actually，when the {@link ExtensionLoader} init the {@link Protocol} instants,it will automatically wraps two
      * layers, and eventually will get a <b>ProtocolFilterWrapper</b> or <b>ProtocolListenerWrapper</b>
      */
+    // 自适应扩展点
     private static final Protocol protocol = ExtensionLoader.getExtensionLoader(Protocol.class).getAdaptiveExtension();
 
     /**
@@ -366,12 +368,14 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
     }
 
     public synchronized void export() {
+        // 检查或者更新配置
         checkAndUpdateSubConfigs();
-
+        // 当前服务是否要发布，比如代码和还没写好，不需要发布
+        // 在@service(export =false) 配置
         if (!shouldExport()) {
             return;
         }
-
+        // 是否延迟发布 在@service(delay = 1000) 配置
         if (shouldDelay()) {
             DELAY_EXPORT_EXECUTOR.schedule(this::doExport, getDelay(), TimeUnit.MILLISECONDS);
         } else {
@@ -408,7 +412,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             return;
         }
         exported = true;
-
+        // path = interfaceName
         if (StringUtils.isEmpty(path)) {
             path = interfaceName;
         }
@@ -449,6 +453,10 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void doExportUrls() {
+        //加载注册中心，并且生成URL地址
+        // 返回List是因为可以配置多个注册中心
+        // URL = registry://127.0.0.1/org.apache.dubbo.registry.RegistryService/...
+        // URL会一直传递下去，增加、修改参数，来驱动流程的执行
         List<URL> registryURLs = loadRegistries(true);
         for (ProtocolConfig protocolConfig : protocols) {
             String pathKey = URL.buildKey(getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), group, version);
@@ -459,7 +467,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
     }
 
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
-        String name = protocolConfig.getName();
+        String name = protocolConfig.getName(); // <dubbo:protocol name="dubbo">
         if (StringUtils.isEmpty(name)) {
             name = DUBBO;
         }
@@ -476,6 +484,10 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         appendParameters(map, provider);
         appendParameters(map, protocolConfig);
         appendParameters(map, this);
+        // 整个if是 methods 参数解析，保存到集合里面，后面转化成拼接成URL
+        // <dubbo:service>
+        //      <dubbo:method>
+        // </dubbo:service>
         if (CollectionUtils.isNotEmpty(methods)) {
             for (MethodConfig method : methods) {
                 appendParameters(map, method, method.getName());
@@ -559,19 +571,33 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         // export service
         String host = this.findConfigedHosts(protocolConfig, registryURLs, map);
         Integer port = this.findConfigedPorts(protocolConfig, name, map);
+        // url = dubbo:ip:20880/com.lyh.demoService?anyhost=true&application=demo&bind.ip=ip&bind.port=20880 .....等等
         URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
 
+        // 动态配置修改的内容
+        // 比如在dubbo admin 平台上 修改 权重等等
         if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
                 .hasExtension(url.getProtocol())) {
             url = ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
                     .getExtension(url.getProtocol()).getConfigurator(url).configure(url);
         }
 
+        // ————————————————————————————————————————————————————————————————————————————————————————————————
+        // url已经组装好了，开发发布
+
+        // scope 是选择服务发布的范围(local/remote)
+        // 1. local：同一个JVM里面调用，没必要走远程，比如： injvm://ip:port，本地为什么还要用dubbo，猜想是如果都要用dubbo这个体系来调用享受dubbo的好处
+        //      或者说先在本地这样子配置，后面比较容易迁移
+        //      本地服务调用就是放在一个集合里面，不需要启动netty服务去远程调用
+        // 2. remote：远程调用，生成的是dubbo://ip:port
+        // 3. 如果配置的是remote，默认情况下 local和remote 都会发布
         String scope = url.getParameter(SCOPE_KEY);
         // don't export when none is configured
         if (!SCOPE_NONE.equalsIgnoreCase(scope)) {
 
             // export to local if the config is not remote (export to remote only when config is remote)
+            // 如果是本地服务调用，则直接调用exportLocal
+            // 本地服务调用就是放在一个集合里面，不需要启动netty服务去远程调用
             if (!SCOPE_REMOTE.equalsIgnoreCase(scope)) {
                 exportLocal(url);
             }
@@ -581,7 +607,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                     logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
                 }
                 if (CollectionUtils.isNotEmpty(registryURLs)) {
-                    for (URL registryURL : registryURLs) {
+                    for (URL registryURL : registryURLs) { // registryURLs = registry://ip:port ......
                         //if protocol is only injvm ,not register
                         if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
                             continue;
@@ -600,17 +626,21 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                         if (StringUtils.isNotEmpty(proxy)) {
                             registryURL = registryURL.addParameter(PROXY_KEY, proxy);
                         }
-
+                        // TODO: 2019/8/11  invoker 可以认为是一个代理类
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
+                        // MetaData 元数据的委托
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
-
+                        // 1. wrapperInvoker = registry://ip:port...
+                        // 2. protocol = ProtoCol$Adaptive
+                        // 3. 然后 ProtoCol$Adaptive 调用 getExtension("registry")方法 会返回 RegistryProtocol
+                        // 4. 再调用 RegistryProtocol.export 来实现服务的注册和发布
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
                         exporters.add(exporter);
                     }
                 } else {
                     Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, url);
                     DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
-
+                    // export 注册
                     Exporter<?> exporter = protocol.export(wrapperInvoker);
                     exporters.add(exporter);
                 }
@@ -674,6 +704,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         }
 
         // if bind ip is not found in environment, keep looking up
+        // 查看 <dubbo:protocol host=""> 是否配置了 host
         if (StringUtils.isEmpty(hostToBind)) {
             hostToBind = protocolConfig.getHost();
             if (provider != null && StringUtils.isEmpty(hostToBind)) {
@@ -682,10 +713,12 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             if (isInvalidLocalHost(hostToBind)) {
                 anyhost = true;
                 try {
+                    // 从 InetAddress 获取 IP
                     hostToBind = InetAddress.getLocalHost().getHostAddress();
                 } catch (UnknownHostException e) {
                     logger.warn(e.getMessage(), e);
                 }
+                // 如果本地还是为空，则连接到注册中心，拿到本地的IP
                 if (isInvalidLocalHost(hostToBind)) {
                     if (CollectionUtils.isNotEmpty(registryURLs)) {
                         for (URL registryURL : registryURLs) {
@@ -693,9 +726,11 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                                 // skip multicast registry since we cannot connect to it via Socket
                                 continue;
                             }
+                            // 连接到注册中心
                             try (Socket socket = new Socket()) {
                                 SocketAddress addr = new InetSocketAddress(registryURL.getHost(), registryURL.getPort());
                                 socket.connect(addr, 1000);
+                                // 从 注册中心 拿到本地的IP
                                 hostToBind = socket.getLocalAddress().getHostAddress();
                                 break;
                             } catch (Exception e) {
