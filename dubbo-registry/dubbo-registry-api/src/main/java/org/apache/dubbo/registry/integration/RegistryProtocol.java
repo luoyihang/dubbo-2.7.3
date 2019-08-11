@@ -220,7 +220,7 @@ public class RegistryProtocol implements Protocol {
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
-        // 将 dubbo://ip:port/ URL注册到 注册中心上
+        // 将 dubbo://ip:port/ URL 注册到 注册中心上
         final Registry registry = getRegistry(originInvoker);
         final URL registeredProviderUrl = getRegisteredProviderUrl(providerUrl, registryUrl);
         ProviderInvokerWrapper<T> providerInvokerWrapper = ProviderConsumerRegTable.registerProvider(originInvoker,
