@@ -463,6 +463,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             String pathKey = URL.buildKey(getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), group, version);
             ProviderModel providerModel = new ProviderModel(pathKey, ref, interfaceClass);
             ApplicationModel.initProviderModel(pathKey, providerModel);
+            // 注册服务
             doExportUrlsFor1Protocol(protocolConfig, registryURLs);
         }
     }
@@ -628,6 +629,9 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                             registryURL = registryURL.addParameter(PROXY_KEY, proxy);
                         }
                         // TODO: 2019/8/11  invoker 可以认为是一个代理类
+                        // 调用的是 ProxyFactory$Adaptive —> StubProxyFactoryWrapper -> JavassistProxyFactory.getInvoker
+                        // 返回的是 AbstractProxyInvoker ！！！！！！！！
+                        // 默认使用 Javassist 生成代理类
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
                         // MetaData 元数据的委托
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);

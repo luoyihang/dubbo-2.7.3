@@ -283,7 +283,7 @@ public class DubboProtocol extends AbstractProtocol {
         URL url = invoker.getUrl();
 
         // export service.
-        // 将 服务invoker 放到一个集合里面
+        // 将 服务invoker 放到一个集合里面，作为缓存！！！！！！！！！！！！！
         String key = serviceKey(url);
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
         exporterMap.put(key, exporter);

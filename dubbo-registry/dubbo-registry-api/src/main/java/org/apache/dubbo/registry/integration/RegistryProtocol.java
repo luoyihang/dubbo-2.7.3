@@ -186,6 +186,8 @@ public class RegistryProtocol implements Protocol {
         // 2.registryFactory.getRegistry 调用的是 Registry$Adaptive#getRegistry()方法，然后 Registry$Adaptive#getRegistry()方法 再调用 ZookeeperRegistryFactory.getRegistry
         // 但是没有这个实现类，所以调用的是父类 AbstractRegistryFactory.getRegistry() 方法
         Registry registry = registryFactory.getRegistry(registryUrl);
+        // registeredProviderUrl = dubbo://ip:port
+        // 基于 curator 去 zk 服务器上注册一个协议地址（就是registeredProviderUrl），是临时节点
         registry.register(registeredProviderUrl);
     }
 

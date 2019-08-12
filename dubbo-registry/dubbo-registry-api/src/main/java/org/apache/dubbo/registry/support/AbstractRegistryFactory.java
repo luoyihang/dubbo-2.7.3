@@ -103,6 +103,7 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
             }
             //create registry by spi/ioc
             // 根据URL创建一个注册中心
+
             registry = createRegistry(url);
             if (registry == null) {
                 throw new IllegalStateException("Can not create registry " + url);
