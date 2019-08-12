@@ -416,6 +416,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         if (StringUtils.isEmpty(path)) {
             path = interfaceName;
         }
+        // 发布服务
         doExportUrls();
     }
 

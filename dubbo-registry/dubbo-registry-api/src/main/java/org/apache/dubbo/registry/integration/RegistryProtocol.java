@@ -182,6 +182,9 @@ public class RegistryProtocol implements Protocol {
     }
 
     public void register(URL registryUrl, URL registeredProviderUrl) {
+        // 1.registryUrl = zookeeper://...
+        // 2.registryFactory.getRegistry 调用的是 Registry$Adaptive#getRegistry()方法，然后 Registry$Adaptive#getRegistry()方法 再调用 ZookeeperRegistryFactory.getRegistry
+        // 但是没有这个实现类，所以调用的是父类 AbstractRegistryFactory.getRegistry() 方法
         Registry registry = registryFactory.getRegistry(registryUrl);
         registry.register(registeredProviderUrl);
     }
@@ -214,7 +217,7 @@ public class RegistryProtocol implements Protocol {
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
 
 
-        // ————————————————————————————————————————————————————————————————————-
+        // --------------------------------------------------------------------------------------------------------------------------
         //export invoker
         // doLocalExport 本质是 如果默认是dubbo协议的话，启动一个netty服务
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
@@ -228,6 +231,8 @@ public class RegistryProtocol implements Protocol {
         //to judge if we need to delay publish
         boolean register = registeredProviderUrl.getParameter("register", true);
         if (register) {
+            // registryUrl 服务注册的地址
+            // registeredProviderUrl 会将这个URL放到注册中心上
             register(registryUrl, registeredProviderUrl);
             providerInvokerWrapper.setReg(true);
         }
@@ -259,8 +264,11 @@ public class RegistryProtocol implements Protocol {
             // 1.protocol.export(invokerDelegate) 才是真正的服务发布
             // 2.protocol = Protocol$Adaptive
             //      在Protocol$Adaptive 返回 QosProtocolWrapper(ProtocolListenerWrapper(ProtocolFilterWrapper(DubboProtocol)))
+            //      QosProtocolWrapper:运维增强
+            //      ProtocolListenerWrapper:将所有 InvokerListener 和 ExporterListener 组装集合，在暴露和引用前后，进行回调
+            //      ProtocolFilterWrapper:过滤器增强
             // 3.protocol.export 最后调用的是 DubboProtocol.export(自己配置的<dubbo:service protocol="dubbo">)
-            //      中间还会调用 QosProtocolWrapper(运维增强).export、ProtocolFilterWrapper(过滤器增强).export
+            //      中间还会调用 QosProtocolWrapper.export、ProtocolFilterWrapper.export
             return new ExporterChangeableWrapper<>((Exporter<T>) protocol.export(invokerDelegate), originInvoker);
         });
     }

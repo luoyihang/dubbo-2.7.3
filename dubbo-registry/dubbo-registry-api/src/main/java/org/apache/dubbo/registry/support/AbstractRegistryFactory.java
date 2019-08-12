@@ -95,11 +95,14 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
         // Lock the registry access process to ensure a single instance of the registry
         LOCK.lock();
         try {
+            // 从缓存中取注册中心，如果有直接返回；没有则新建
             Registry registry = REGISTRIES.get(key);
+            //
             if (registry != null) {
                 return registry;
             }
             //create registry by spi/ioc
+            // 根据URL创建一个注册中心
             registry = createRegistry(url);
             if (registry == null) {
                 throw new IllegalStateException("Can not create registry " + url);

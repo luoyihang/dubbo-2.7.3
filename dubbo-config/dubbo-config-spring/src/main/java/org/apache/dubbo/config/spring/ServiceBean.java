@@ -336,6 +336,7 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
      */
     @Override
     public void export() {
+        // 发布服务
         super.export();
         // Publish ServiceBeanExportedEvent
         publishExportEvent();
