@@ -240,12 +240,15 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
         checkMetadataReport();
     }
 
+    // 返回一个代理对象（加了@Reference注解的对象）
     public synchronized T get() {
+        // 检查配置和完善配置
         checkAndUpdateSubConfigs();
 
         if (destroyed) {
             throw new IllegalStateException("The invoker of ReferenceConfig(" + url + ") has already destroyed!");
         }
+        // ref  还没生成的时候，去init
         if (ref == null) {
             init();
         }
@@ -273,6 +276,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
         if (initialized) {
             return;
         }
+        // 检查存根和本地
         checkStubAndLocal(interfaceClass);
         checkMock(interfaceClass);
         Map<String, String> map = new HashMap<String, String>();
@@ -294,6 +298,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                 map.put(METHODS_KEY, StringUtils.join(new HashSet<String>(Arrays.asList(methods)), COMMA_SEPARATOR));
             }
         }
+        // 组装URL
         map.put(INTERFACE_KEY, interfaceName);
         appendParameters(map, metrics);
         appendParameters(map, application);
@@ -319,13 +324,14 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
         }
 
         String hostToRegistry = ConfigUtils.getSystemProperty(DUBBO_IP_TO_REGISTRY);
-        if (StringUtils.isEmpty(hostToRegistry)) {
-            hostToRegistry = NetUtils.getLocalHost();
+        if (StringUtils.isEmpty(hostToRegistry)) { //如果为空，使用本地的(0.0.0.0)
+            hostToRegistry = NetUtils.getLocalHost(); // 0.0.0.0
         } else if (isInvalidLocalHost(hostToRegistry)) {
             throw new IllegalArgumentException("Specified invalid registry ip from property:" + DUBBO_IP_TO_REGISTRY + ", value:" + hostToRegistry);
         }
         map.put(REGISTER_IP_KEY, hostToRegistry);
 
+        // 真正意义上去构建 proxy 的过程（加了@Reference注解的本质上就是一个 proxy ）
         ref = createProxy(map);
 
         String serviceKey = URL.buildKey(interfaceName, group, version);
@@ -349,6 +355,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
 
     @SuppressWarnings({"unchecked", "rawtypes", "deprecation"})
     private T createProxy(Map<String, String> map) {
+        // 是否是同一个JVM进程调用(injvm)，如果是，则没必要走远程调用
         if (shouldJvmRefer(map)) {
             URL url = new URL(LOCAL_PROTOCOL, LOCALHOST_VALUE, 0, interfaceClass.getName()).addParameters(map);
             invoker = REF_PROTOCOL.refer(interfaceClass, url);
@@ -357,6 +364,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
             }
         } else {
             urls.clear(); // reference retry init will add url to urls, lead to OOM
+            // 是否直接，直连 或者 从注册中心拿到url
             if (url != null && url.length() > 0) { // user specified URL, could be peer-to-peer address, or register center's address.
                 String[] us = SEMICOLON_SPLIT_PATTERN.split(url);
                 if (us != null && us.length > 0) {
@@ -372,13 +380,17 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                         }
                     }
                 }
+            // 从注册中心拿到url
             } else { // assemble URL from register center's configuration
                 // if protocols not injvm checkRegistry
                 if (!LOCAL_PROTOCOL.equalsIgnoreCase(getProtocol())){
                     checkRegistry();
+                    // 从注册中心拿到URL
+                    // us集合 = registry://ip:port
                     List<URL> us = loadRegistries(false);
                     if (CollectionUtils.isNotEmpty(us)) {
                         for (URL u : us) {
+                            // 是否配置了监控
                             URL monitorUrl = loadMonitor(u);
                             if (monitorUrl != null) {
                                 map.put(MONITOR_KEY, URL.encode(monitorUrl.toFullString()));

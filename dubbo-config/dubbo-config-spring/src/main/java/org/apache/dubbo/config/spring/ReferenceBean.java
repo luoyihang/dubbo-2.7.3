@@ -234,6 +234,7 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
             }
         }
 
+        // 客户端开始注册
         if (shouldInit()) {
             getObject();
         }
