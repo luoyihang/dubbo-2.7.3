@@ -169,6 +169,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
         setConsumerUrl(url);
         CONSUMER_CONFIGURATION_LISTENER.addNotifyListener(this);
         serviceConfigurationListener = new ReferenceConfigurationListener(this, url);
+        // 1. registry = zookeeperRegistry，所以会
+        // 2. listener = this,也就是 RegistryDirectory 自己
+        // 3. 调用 FailbackRegistry.subscribe
         registry.subscribe(url, this);
     }
 
@@ -230,13 +233,15 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
         // providers
         List<URL> providerURLs = categoryUrls.getOrDefault(PROVIDERS_CATEGORY, Collections.emptyList());
+        // 刷新或者覆盖 invoker
+        // providerURLs = dubbo://ip:port...
         refreshOverrideAndInvoker(providerURLs);
     }
 
     private void refreshOverrideAndInvoker(List<URL> urls) {
         // mock zookeeper://xxx?mock=return null
-        overrideDirectoryUrl();
-        refreshInvoker(urls);
+        overrideDirectoryUrl(); // 覆盖
+        refreshInvoker(urls); // 刷新！！！！
     }
 
     /**
@@ -277,6 +282,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             if (invokerUrls.isEmpty()) {
                 return;
             }
+            // toInvokers 方法将 invokerUrls 转化为 invoker
             Map<String, Invoker<T>> newUrlInvokerMap = toInvokers(invokerUrls);// Translate url list to Invoker map
 
             /**
@@ -298,6 +304,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             // toMergeMethodInvokerMap() will wrap some invokers having different groups, those wrapped invokers not should be routed.
             routerChain.setInvokers(newInvokers);
             this.invokers = multiGroup ? toMergeInvokerList(newInvokers) : newInvokers;
+            // 将 newUrlInvokerMap 赋值给 urlInvokerMap 中
             this.urlInvokerMap = newUrlInvokerMap;
 
             try {
@@ -403,6 +410,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             }
             URL url = mergeUrl(providerUrl);
 
+            // newUrlInvokerMap 的 key； key = dubbo://ip:port
             String key = url.toFullString(); // The parameter urls are sorted
             if (keys.contains(key)) { // Repeated url
                 continue;
@@ -420,12 +428,15 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                         enabled = url.getParameter(ENABLED_KEY, true);
                     }
                     if (enabled) {
+                        // 真正意义上建立通信连接的方法！！！！！！！！！！！！！！！！！！！！！！！！
+                        // protocol.refer(serviceType, url) 最终会调用 AbstractProtocol.refer
                         invoker = new InvokerDelegate<>(protocol.refer(serviceType, url), url, providerUrl);
                     }
                 } catch (Throwable t) {
                     logger.error("Failed to refer invoker for interface:" + serviceType + ",url:(" + url + ")" + t.getMessage(), t);
                 }
                 if (invoker != null) { // Put new invoker in cache
+                    // 将invoker 存放在 newUrlInvokerMap 中
                     newUrlInvokerMap.put(key, invoker);
                 }
             } else {

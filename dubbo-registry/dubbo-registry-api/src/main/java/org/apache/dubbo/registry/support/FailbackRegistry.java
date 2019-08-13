@@ -288,12 +288,15 @@ public abstract class FailbackRegistry extends AbstractRegistry {
 
     @Override
     public void subscribe(URL url, NotifyListener listener) {
+        // listener = RegistryDirectory
         super.subscribe(url, listener);
         removeFailedSubscribed(url, listener);
         try {
             // Sending a subscription request to the server side
+            // 调用 zookeeperRegistry.doSubscribe();
             doSubscribe(url, listener);
         } catch (Exception e) {
+            // 注册订阅失败后步骤
             Throwable t = e;
 
             List<URL> urls = getCacheUrls(url);
@@ -357,6 +360,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             throw new IllegalArgumentException("notify listener == null");
         }
         try {
+            // 通知
             doNotify(url, listener, urls);
         } catch (Exception t) {
             // Record a failed registration request to a failed list, retry regularly
@@ -366,6 +370,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     }
 
     protected void doNotify(URL url, NotifyListener listener, List<URL> urls) {
+        // 调用父类 AbstractRegistry.notify
         super.notify(url, listener, urls);
     }
 

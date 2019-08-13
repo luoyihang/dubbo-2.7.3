@@ -403,15 +403,18 @@ public class RegistryProtocol implements Protocol {
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
+        // url = zookeeper://...
         url = URLBuilder.from(url)
                 .setProtocol(url.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY))
                 .removeParameter(REGISTRY_KEY)
                 .build();
+        // 获得注册中心
         Registry registry = registryFactory.getRegistry(url);
         if (RegistryService.class.equals(type)) {
             return proxyFactory.getInvoker((T) registry, type, url);
         }
 
+        // 过滤
         // group="a,b" or group="*"
         Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
         String group = qs.get(GROUP_KEY);
@@ -420,6 +423,8 @@ public class RegistryProtocol implements Protocol {
                 return doRefer(getMergeableCluster(), registry, type, url);
             }
         }
+        // 调用 doRefer
+        // cluster 容错机制，是一个扩展点，查看 org.apache.dubbo.rpc.cluster.Cluster，默认 failover
         return doRefer(cluster, registry, type, url);
     }
 
@@ -427,10 +432,16 @@ public class RegistryProtocol implements Protocol {
         return ExtensionLoader.getExtensionLoader(Cluster.class).getExtension("mergeable");
     }
 
+    // doRefer 做的事情： 1. 从zk上获取privider url 2.建立链接
     private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
+        /************************************/
+        // 范围内作用：构建一个 consumer://ip:port 节点保存到zk上（zk上一共有4个节点 configuration/provider/consumer/router）
+        // 1. 连接到注册中心
+        // 2. 从注册中心拿到 provider 地址
+        // 3. 基于 provider 地址建立远程通信
         RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
-        directory.setRegistry(registry);
-        directory.setProtocol(protocol);
+        directory.setRegistry(registry); // registry = InvokerRegistry -> 获得url地址
+        directory.setProtocol(protocol); // protocol = DubboProtocol -> 建立通信
         // all attributes of REFER_KEY
         Map<String, String> parameters = new HashMap<String, String>(directory.getUrl().getParameters());
         URL subscribeUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
@@ -439,9 +450,13 @@ public class RegistryProtocol implements Protocol {
             registry.register(directory.getRegisteredConsumerUrl());
         }
         directory.buildRouterChain(subscribeUrl);
+        // 订阅，监听服务器地址变化
         directory.subscribe(subscribeUrl.addParameter(CATEGORY_KEY,
                 PROVIDERS_CATEGORY + "," + CONFIGURATORS_CATEGORY + "," + ROUTERS_CATEGORY));
+        /*****************************/
 
+
+        // invoker = MockClusterWrapper(FailoverCluster(RegistryDirectory))
         Invoker invoker = cluster.join(directory);
         ProviderConsumerRegTable.registerConsumer(invoker, url, subscribeUrl, directory);
         return invoker;

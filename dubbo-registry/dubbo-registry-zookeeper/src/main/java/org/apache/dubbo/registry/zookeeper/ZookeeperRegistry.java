@@ -130,6 +130,8 @@ public class ZookeeperRegistry extends FailbackRegistry {
     @Override
     public void doSubscribe(final URL url, final NotifyListener listener) {
         try {
+            /***************注册监听 start *********/
+            // 如果任何服务都能匹配
             if (ANY_VALUE.equals(url.getServiceInterface())) {
                 String root = toRootPath();
                 ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);
@@ -163,23 +165,32 @@ public class ZookeeperRegistry extends FailbackRegistry {
                 }
             } else {
                 List<URL> urls = new ArrayList<>();
+                //  toCategoriesPath(url) = configuration/consumer/provider/router
+                // 循环 toCategoriesPath(url) 做监听
                 for (String path : toCategoriesPath(url)) {
                     ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);
+                    // 判断，putIfAbsent
                     if (listeners == null) {
                         zkListeners.putIfAbsent(url, new ConcurrentHashMap<>());
                         listeners = zkListeners.get(url);
                     }
                     ChildListener zkListener = listeners.get(listener);
+                    // 判断，putIfAbsent
                     if (zkListener == null) {
                         listeners.putIfAbsent(listener, (parentPath, currentChilds) -> ZookeeperRegistry.this.notify(url, listener, toUrlsWithEmpty(url, parentPath, currentChilds)));
                         zkListener = listeners.get(listener);
                     }
                     zkClient.create(path, false);
+                    // 对子节点的监听
+                    // children = providerUrl，是临时节点
                     List<String> children = zkClient.addChildListener(path, zkListener);
                     if (children != null) {
+                        // urls会添加 configuration/provider/router 这三个节点的URL地址（分别对应 empty://ip:port 、 dubbo://ip:port 、empty://ip:port ）
                         urls.addAll(toUrlsWithEmpty(url, path, children));
                     }
                 }
+                /***************注册监听 end *********/
+                // 通知
                 notify(url, listener, urls);
             }
         } catch (Throwable e) {

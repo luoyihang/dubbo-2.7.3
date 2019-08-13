@@ -405,6 +405,9 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
             }
 
             if (urls.size() == 1) {
+                // 1. 构建一个 invoker
+                // 2. REF_PROTOCOL = Protocol$Adaptive 自适应扩展点 —> Qos(Listener(filter(RegistryProtocol).refer)))
+                // 3. 也就是说最后调用 RegistryProtocol.refer();
                 invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
             } else {
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
