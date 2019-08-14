@@ -428,7 +428,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                         enabled = url.getParameter(ENABLED_KEY, true);
                     }
                     if (enabled) {
-                        // 真正意义上建立通信连接的方法！！！！！！！！！！！！！！！！！！！！！！！！
+                        /****************** 真正意义上建立通信连接的方法 *************************/
                         // protocol.refer(serviceType, url) 最终会调用 AbstractProtocol.refer
                         invoker = new InvokerDelegate<>(protocol.refer(serviceType, url), url, providerUrl);
                     }
