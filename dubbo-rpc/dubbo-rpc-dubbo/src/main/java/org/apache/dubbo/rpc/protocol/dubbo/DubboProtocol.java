@@ -419,7 +419,7 @@ public class DubboProtocol extends AbstractProtocol {
 
     private ExchangeClient[] getClients(URL url) {
         // whether to share connection
-        // 默认是共享链接，在下面进行了判断
+        // 默认是共享链接，在下面进行了判断（和每个provider建立一个长连接）
         boolean useShareConnect = false;
 
         int connections = url.getParameter(CONNECTIONS_KEY, 0);
