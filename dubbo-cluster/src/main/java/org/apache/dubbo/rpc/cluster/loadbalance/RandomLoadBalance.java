@@ -35,6 +35,7 @@ public class RandomLoadBalance extends AbstractLoadBalance {
         // Number of invokers
         int length = invokers.size();
         // Every invoker has the same weight?
+        // 权重
         boolean sameWeight = true;
         // the weight of every invokers
         int[] weights = new int[length];
@@ -43,7 +44,9 @@ public class RandomLoadBalance extends AbstractLoadBalance {
         weights[0] = firstWeight;
         // The sum of weights
         int totalWeight = firstWeight;
+        // 判断权重是否相等
         for (int i = 1; i < length; i++) {
+            // 获取权重getWeight，不仅仅是根据URL中的配置的权重来实现的，还有一个因素是服务的启动时间
             int weight = getWeight(invokers.get(i), invocation);
             // save for later use
             weights[i] = weight;
@@ -53,8 +56,10 @@ public class RandomLoadBalance extends AbstractLoadBalance {
                 sameWeight = false;
             }
         }
+        // 权重不一样的情况
         if (totalWeight > 0 && !sameWeight) {
             // If (not every invoker has the same weight & at least one invoker's weight>0), select randomly based on totalWeight.
+            // 如果 service[a,b,c] weight[2,3,6]  如果 offset = 6，循环遍历, 6-2=4 > 0 ,4-3=1 > 0, 1-6=-5 < 0，所以返回的是c
             int offset = ThreadLocalRandom.current().nextInt(totalWeight);
             // Return a invoker based on the random value.
             for (int i = 0; i < length; i++) {
@@ -65,6 +70,7 @@ public class RandomLoadBalance extends AbstractLoadBalance {
             }
         }
         // If all invokers have the same weight value or totalWeight=0, return evenly.
+        // 如果权重都相同或者0，直接返回随机数
         return invokers.get(ThreadLocalRandom.current().nextInt(length));
     }
 

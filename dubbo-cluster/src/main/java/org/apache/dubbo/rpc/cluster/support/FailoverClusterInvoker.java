@@ -58,12 +58,15 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
         List<Invoker<T>> copyInvokers = invokers;
         checkInvokers(copyInvokers, invocation);
         String methodName = RpcUtils.getMethodName(invocation);
+        // len = 重试的次数，默认是2 （调用的1次，重试2次，一共会调用3次）
         int len = getUrl().getMethodParameter(methodName, RETRIES_KEY, DEFAULT_RETRIES) + 1;
         if (len <= 0) {
             len = 1;
         }
         // retry loop.
+        // 异常信息记录
         RpcException le = null; // last exception.
+        // invoked = 调用过的服务（调用过的服务失败，本次请求不再调用该服务）
         List<Invoker<T>> invoked = new ArrayList<Invoker<T>>(copyInvokers.size()); // invoked invokers.
         Set<String> providers = new HashSet<String>(len);
         for (int i = 0; i < len; i++) {
@@ -75,10 +78,12 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 // check again
                 checkInvokers(copyInvokers, invocation);
             }
+            // 通过负载均衡算法后，得到一个真正的目标 invoker
             Invoker<T> invoker = select(loadbalance, invocation, copyInvokers, invoked);
             invoked.add(invoker);
             RpcContext.getContext().setInvokers((List) invoked);
             try {
+                /******************发起远程调用*****************/
                 Result result = invoker.invoke(invocation);
                 if (le != null && logger.isWarnEnabled()) {
                     logger.warn("Although retry the method " + methodName
@@ -93,9 +98,11 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 }
                 return result;
             } catch (RpcException e) {
+                // 业务异常，不进行重试
                 if (e.isBiz()) { // biz exception.
                     throw e;
                 }
+                // 否则保存异常记录
                 le = e;
             } catch (Throwable e) {
                 le = new RpcException(e.getMessage(), e);

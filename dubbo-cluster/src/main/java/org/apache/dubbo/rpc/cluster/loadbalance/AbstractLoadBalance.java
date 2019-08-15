@@ -53,9 +53,11 @@ public abstract class AbstractLoadBalance implements LoadBalance {
         if (CollectionUtils.isEmpty(invokers)) {
             return null;
         }
+        // 如果目标服务只有一个，直接返回
         if (invokers.size() == 1) {
             return invokers.get(0);
         }
+        // 调用实现类
         return doSelect(invokers, url, invocation);
     }
 
@@ -76,6 +78,7 @@ public abstract class AbstractLoadBalance implements LoadBalance {
             long timestamp = invoker.getUrl().getParameter(REMOTE_TIMESTAMP_KEY, 0L);
             if (timestamp > 0L) {
                 int uptime = (int) (System.currentTimeMillis() - timestamp);
+                // 暖启动，如果服务刚启动，不立刻把所有请求丢到这个服务上
                 int warmup = invoker.getUrl().getParameter(WARMUP_KEY, DEFAULT_WARMUP);
                 if (uptime > 0 && uptime < warmup) {
                     weight = calculateWarmupWeight(uptime, warmup, weight);

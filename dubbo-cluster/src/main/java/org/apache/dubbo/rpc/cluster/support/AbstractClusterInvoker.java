@@ -139,6 +139,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             }
         }
 
+        // 调用 doSelect 方法
         Invoker<T> invoker = doSelect(loadbalance, invocation, invokers, selected);
 
         if (sticky) {
@@ -156,6 +157,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         if (invokers.size() == 1) {
             return invokers.get(0);
         }
+        // 通过负载均衡算法 帅选出 一个 invoker
         Invoker<T> invoker = loadbalance.select(invokers, getUrl(), invocation);
 
         //If the `invoker` is in the  `selected` or invoker is unavailable && availablecheck is true, reselect.
@@ -254,10 +256,16 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         // 本质上相当于从 zk 中拿地址，但是 RegistryDirectory 订阅了zk的通知，有变化 通过 notify 方法刷新本地，所以直接从 RegistryDirectory 中就能拿到
         List<Invoker<T>> invokers = list(invocation);
         /**
-         * 负载均衡
+         * 初始化负载均衡机制
+         * 在客户端和服务端都可以 配置 loadbalance="random"/"roundrobin"
+         *      获得url里面配置的负载均衡策略，默认是random
+         *      spi -> 通过自适应扩展点进行适配 -> 得到真正意义上的实现
+         *      容错 -> failover 重试 -> 已经调用过并且失败的结点，下次重试不能走这个节点
          */
         LoadBalance loadbalance = initLoadBalance(invokers, invocation);
+        // 如果是异步调用，附加调用的ID
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
+        // 默认 failover
         return doInvoke(invocation, invokers, loadbalance);
     }
 
@@ -309,6 +317,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             return ExtensionLoader.getExtensionLoader(LoadBalance.class).getExtension(invokers.get(0).getUrl()
                     .getMethodParameter(RpcUtils.getMethodName(invocation), LOADBALANCE_KEY, DEFAULT_LOADBALANCE));
         } else {
+            // 如果为空，用默认负载均衡算法(random)
             return ExtensionLoader.getExtensionLoader(LoadBalance.class).getExtension(DEFAULT_LOADBALANCE);
         }
     }
