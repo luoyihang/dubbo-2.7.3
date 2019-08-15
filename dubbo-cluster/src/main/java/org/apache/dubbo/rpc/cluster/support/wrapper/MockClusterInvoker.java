@@ -71,22 +71,24 @@ public class MockClusterInvoker<T> implements Invoker<T> {
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         Result result = null;
-
+        // 从 url中获取 key = mock 的 value 的值
         String value = directory.getUrl().getMethodParameter(invocation.getMethodName(), MOCK_KEY, Boolean.FALSE.toString()).trim();
-        if (value.length() == 0 || value.equalsIgnoreCase("false")) {
+        if (value.length() == 0 || value.equalsIgnoreCase("false")) { // 不走mock操作
             //no mock
             result = this.invoker.invoke(invocation);
-        } else if (value.startsWith("force")) {
+        } else if (value.startsWith("force")) { // 强制走本地的返回
             if (logger.isWarnEnabled()) {
                 logger.warn("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + directory.getUrl());
             }
             //force:direct mock
             result = doMockInvoke(invocation, null);
-        } else {
+        } else {  // 调用服务失败的情况
             //fail-mock
             try {
+                // 远程调用
                 result = this.invoker.invoke(invocation);
             } catch (RpcException e) {
+                // 业务异常，直接抛出
                 if (e.isBiz()) {
                     throw e;
                 }
@@ -94,6 +96,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
                 if (logger.isWarnEnabled()) {
                     logger.warn("fail-mock: " + invocation.getMethodName() + " fail-mock enabled , url : " + directory.getUrl(), e);
                 }
+                //  如果失败，调用 我们配置的 mock 方法进行返回
                 result = doMockInvoke(invocation, e);
             }
         }
@@ -101,7 +104,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private Result doMockInvoke(Invocation invocation, RpcException e) {
+    private Result  doMockInvoke(Invocation invocation, RpcException e) {
         Result result = null;
         Invoker<T> minvoker;
 

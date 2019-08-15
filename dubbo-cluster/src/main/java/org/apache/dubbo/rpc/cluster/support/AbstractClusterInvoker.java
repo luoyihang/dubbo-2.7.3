@@ -232,17 +232,30 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         return null;
     }
 
+    /**
+     *
+     *
+     * @param invocation    在 InvokerInvocationHandler 中通过 new RpcInvocation(method, args) 传入进来的，相当于 http 请求中的 request
+     * @return
+     * @throws RpcException
+     */
     @Override
     public Result invoke(final Invocation invocation) throws RpcException {
         checkWhetherDestroyed();
 
         // binding attachments into invocation.
+        // attachments 隐式传参，可以在参数中增加自己的参数
+        // 可以通过 RpcContext.getContext().setAttachments()
         Map<String, String> contextAttachments = RpcContext.getContext().getAttachments();
         if (contextAttachments != null && contextAttachments.size() != 0) {
             ((RpcInvocation) invocation).addAttachments(contextAttachments);
         }
-
+        // list(invocation) = 从 RegistryDirectory 中拿到目标服务的 List<Invoker> （list方法中还有 route方法）
+        // 本质上相当于从 zk 中拿地址，但是 RegistryDirectory 订阅了zk的通知，有变化 通过 notify 方法刷新本地，所以直接从 RegistryDirectory 中就能拿到
         List<Invoker<T>> invokers = list(invocation);
+        /**
+         * 负载均衡
+         */
         LoadBalance loadbalance = initLoadBalance(invokers, invocation);
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
         return doInvoke(invocation, invokers, loadbalance);

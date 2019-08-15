@@ -95,6 +95,7 @@ public class RouterChain<T> {
      */
     public List<Invoker<T>> route(URL url, Invocation invocation) {
         List<Invoker<T>> finalInvokers = invokers;
+        // 目前支持3种路由策略  分别是条件路由 ConditionRouter、脚本路由 ScriptRouter 和标签路由 TagRouter
         for (Router router : routers) {
             finalInvokers = router.route(finalInvokers, url, invocation);
         }

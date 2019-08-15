@@ -37,6 +37,8 @@ public class InvokerInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        // method = 调用的目标方法
+        // args = 调用目标的参数
         String methodName = method.getName();
         Class<?>[] parameterTypes = method.getParameterTypes();
         if (method.getDeclaringClass() == Object.class) {
@@ -51,7 +53,7 @@ public class InvokerInvocationHandler implements InvocationHandler {
         if ("equals".equals(methodName) && parameterTypes.length == 1) {
             return invoker.equals(args[0]);
         }
-
+        // 进入 MockClusterInvoker.invoke
         return invoker.invoke(new RpcInvocation(method, args)).recreate();
     }
 }
