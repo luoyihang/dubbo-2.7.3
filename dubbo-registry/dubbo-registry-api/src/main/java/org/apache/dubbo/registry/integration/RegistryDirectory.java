@@ -429,7 +429,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                     }
                     if (enabled) {
                         /****************** 真正意义上建立通信连接的方法 *************************/
-                        // protocol.refer(serviceType, url) 最终会调用 AbstractProtocol.refer
+                        // 1. protocol.refer(serviceType, url) 最终会调用 AbstractProtocol.refer
+                        // 2 invoker = InvokerDelegate(ProtocolFilterWrapper(ListenerInvokerWrapper(DubboInvoker)))
                         invoker = new InvokerDelegate<>(protocol.refer(serviceType, url), url, providerUrl);
                     }
                 } catch (Throwable t) {

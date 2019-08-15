@@ -166,6 +166,7 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
 
     @Override
     public void send(Object message, boolean sent) throws RemotingException {
+        // 如果没连接，建立连接
         if (needReconnect && !isConnected()) {
             connect();
         }
@@ -174,6 +175,7 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         if (channel == null || !channel.isConnected()) {
             throw new RemotingException(this, "message can not send, because channel is closed . url:" + getUrl());
         }
+        // 发送消息，默认 netty4中的 NettyChannel
         channel.send(message, sent);
     }
 

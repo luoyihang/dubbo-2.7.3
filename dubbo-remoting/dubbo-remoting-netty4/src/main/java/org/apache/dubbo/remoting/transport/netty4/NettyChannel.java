@@ -131,6 +131,7 @@ final class NettyChannel extends AbstractChannel {
         boolean success = true;
         int timeout = 0;
         try {
+            // 发送数据
             ChannelFuture future = channel.writeAndFlush(message);
             if (sent) {
                 // wait timeout ms

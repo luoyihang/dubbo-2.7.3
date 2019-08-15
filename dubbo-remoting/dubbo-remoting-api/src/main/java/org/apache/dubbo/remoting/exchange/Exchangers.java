@@ -107,6 +107,7 @@ public class Exchangers {
             throw new IllegalArgumentException("handler == null");
         }
         url = url.addParameterIfAbsent(Constants.CODEC_KEY, "exchange");
+        // 连接
         return getExchanger(url).connect(url, handler);
     }
 

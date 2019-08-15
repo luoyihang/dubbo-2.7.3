@@ -137,6 +137,7 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         if (CollectionUtils.isNotEmptyMap(attachment)) {
             invocation.addAttachmentsIfAbsent(attachment);
         }
+        // 隐式传参
         Map<String, String> contextAttachments = RpcContext.getContext().getAttachments();
         if (CollectionUtils.isNotEmptyMap(contextAttachments)) {
             /**
@@ -144,6 +145,11 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
              * because the {@link RpcContext#setAttachment(String, String)} is passed in the Filter when the call is triggered
              * by the built-in retry mechanism of the Dubbo. The attachment to update RpcContext will no longer work, which is
              * a mistake in most cases (for example, through Filter to RpcContext output traceId and spanId and other information).
+             *
+             * 这里的隐式传参存在问题，不应该在这里使用 invocation.addAttachmentsIfAbsent
+             * 因为setAttachment在调用被触发时通过Filter传递Dubbo的内置重试机制。
+             * 更新RpcContext的附件将不再起作用，这在大多数情况下都是错误的
+             * 例如，通过 Filter to RpcContext 输出traceId和spanId以及其他信息
              */
             invocation.addAttachments(contextAttachments);
         }
@@ -152,6 +158,7 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
 
         try {
+            // 调用 DubboInvoker.doInvoke 方法
             return doInvoke(invocation);
         } catch (InvocationTargetException e) { // biz exception
             Throwable te = e.getTargetException();

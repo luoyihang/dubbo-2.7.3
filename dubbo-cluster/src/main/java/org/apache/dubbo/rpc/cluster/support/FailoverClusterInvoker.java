@@ -84,6 +84,10 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
             RpcContext.getContext().setInvokers((List) invoked);
             try {
                 /******************发起远程调用*****************/
+                // 1. invoker = InvokerDelegate
+                // 2. InvokerDelegate 是从 RegistryDirectory.urlInvokerMap 中获取的, urlInvokerMap 在 RegistryDirectory.toInvoke方法中赋值的
+                // 3. InvokerDelegate = InvokerDelegate(ProtocolFilterWrapper(ListenerInvokerWrapper(DubboInvoker)))
+                // 4. 最后会调用到 DubboInvoker.invoke （因为DubboInvoker没有invoke，所以调用父类AbstractInvoker.invoke）
                 Result result = invoker.invoke(invocation);
                 if (le != null && logger.isWarnEnabled()) {
                     logger.warn("Although retry the method " + methodName

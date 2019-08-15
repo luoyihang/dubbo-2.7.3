@@ -79,22 +79,27 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
         inv.setAttachment(PATH_KEY, getUrl().getPath());
         inv.setAttachment(VERSION_KEY, version);
 
-        ExchangeClient currentClient;
+        ExchangeClient currentClient; // 初始化 invoker 的时候，构建的远程通信连接
         // 拿到客户端链接，发起通信
         if (clients.length == 1) {
             currentClient = clients[0];
         } else {
+            // 存在多个连接的情况，通过取模拿到其中一个连接
             currentClient = clients[index.getAndIncrement() % clients.length];
         }
         try {
+            // isOneway 表示当前方法是否存在返回值 true-不存在返回值 false-存在返回值
             boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);
+            // 超时时间
             int timeout = getUrl().getMethodPositiveParameter(methodName, TIMEOUT_KEY, DEFAULT_TIMEOUT);
+            // 不存在返回值
             if (isOneway) {
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
                 currentClient.send(inv, isSent);
                 return AsyncRpcResult.newDefaultAsyncResult(invocation);
             } else {
                 AsyncRpcResult asyncRpcResult = new AsyncRpcResult(inv);
+                // currentClient = ReferenceCountExchangeClient(HeaderExchangeClint(HeaderExchangeChannel()))
                 CompletableFuture<Object> responseFuture = currentClient.request(inv, timeout);
                 asyncRpcResult.subscribeTo(responseFuture);
                 // save for 2.6.x compatibility, for example, TraceFilter in Zipkin uses com.alibaba.xxx.FutureAdapter

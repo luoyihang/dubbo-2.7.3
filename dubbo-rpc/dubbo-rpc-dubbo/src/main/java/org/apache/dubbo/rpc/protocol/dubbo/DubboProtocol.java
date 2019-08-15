@@ -425,7 +425,7 @@ public class DubboProtocol extends AbstractProtocol {
         int connections = url.getParameter(CONNECTIONS_KEY, 0);
         List<ReferenceCountExchangeClient> shareClients = null;
         // if not configured, connection is shared, otherwise, one connection for one service
-        // 默认共享链接
+        // 默认共享链接（长连接）
         if (connections == 0) {
             useShareConnect = true;
 
