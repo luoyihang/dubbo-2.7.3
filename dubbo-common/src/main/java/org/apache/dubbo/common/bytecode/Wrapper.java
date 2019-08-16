@@ -113,8 +113,10 @@ public abstract class Wrapper {
             return OBJECT_WRAPPER;
         }
 
+        // 从 WRAPPER_MAP 缓存中获取 动态代理类
         Wrapper ret = WRAPPER_MAP.get(c);
         if (ret == null) {
+            // 组装动态实现类
             ret = makeWrapper(c);
             WRAPPER_MAP.put(c, ret);
         }
@@ -268,6 +270,7 @@ public abstract class Wrapper {
             for (Method m : ms.values()) {
                 wc.getField("mts" + ix++).set(null, m.getParameterTypes());
             }
+            // 动态组装字节码，动态生成实现类
             return (Wrapper) wc.newInstance();
         } catch (RuntimeException e) {
             throw e;

@@ -124,8 +124,10 @@ public class DubboProtocol extends AbstractProtocol {
             }
 
             Invocation inv = (Invocation) message;
+            // 获取 invoker
             Invoker<?> invoker = getInvoker(channel, inv);
             // need to consider backward-compatibility if it's a callback
+            // 是否是回调的方法
             if (Boolean.TRUE.toString().equals(inv.getAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
                 String methodsStr = invoker.getUrl().getParameters().get("methods");
                 boolean hasMethod = false;
@@ -149,6 +151,8 @@ public class DubboProtocol extends AbstractProtocol {
                 }
             }
             RpcContext.getContext().setRemoteAddress(channel.getRemoteAddress());
+            // invoker = ProtocolFilterWrapper(InvokerDelegate(DelegateProviderMetaDataInvoker(AbstractProxyInvoker())))
+            // 最后调动 AbstractProxyInvoker.invoke，并且获取返回结果
             Result result = invoker.invoke(inv);
             return result.completionFuture().thenApply(Function.identity());
         }
@@ -257,8 +261,9 @@ public class DubboProtocol extends AbstractProtocol {
             path += "." + inv.getAttachments().get(CALLBACK_SERVICE_KEY);
             inv.getAttachments().put(IS_CALLBACK_SERVICE_INVOKE, Boolean.TRUE.toString());
         }
-
+        // 组装成 key， 从 exporterMap 中获取 invoker
         String serviceKey = serviceKey(port, path, inv.getAttachments().get(VERSION_KEY), inv.getAttachments().get(GROUP_KEY));
+        // exporterMap 是在 org.apache.dubbo.rpc.protocol.dubbo.DubboProtocol.export 方法中放入的
         DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);
 
         if (exporter == null) {

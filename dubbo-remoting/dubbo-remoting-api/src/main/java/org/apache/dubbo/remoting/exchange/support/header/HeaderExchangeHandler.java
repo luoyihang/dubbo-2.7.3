@@ -101,7 +101,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         // 消息体 RpcInvocation[method=X, parameterTypes=[X],arguments=[X],attachments={path=com.lyh.MyService, dubbbo=X interface=com.lyh.MyService, version=X ......}]
         Object msg = req.getData();
         try {
-            // 接受请求
+            // 接受请求，调用的是 DubboProtocol.reply
             CompletionStage<Object> future = handler.reply(channel, msg);
             future.whenComplete((appResult, t) -> {
                 try {
