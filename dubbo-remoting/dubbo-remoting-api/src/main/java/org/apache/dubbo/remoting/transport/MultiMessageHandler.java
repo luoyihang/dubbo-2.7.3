@@ -36,10 +36,13 @@ public class MultiMessageHandler extends AbstractChannelHandlerDelegate {
     public void received(Channel channel, Object message) throws RemotingException {
         if (message instanceof MultiMessage) {
             MultiMessage list = (MultiMessage) message;
+            // 如果消息是一个 list，则进行拆分处理
             for (Object obj : list) {
+                // NettyServerHandler -> MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DecodeHandler -> HeaderExchangeHandler
                 handler.received(channel, obj);
             }
         } else {
+            // 单个消息
             handler.received(channel, message);
         }
     }

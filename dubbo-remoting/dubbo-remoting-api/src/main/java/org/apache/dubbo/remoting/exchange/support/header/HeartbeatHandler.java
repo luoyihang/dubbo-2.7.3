@@ -62,9 +62,12 @@ public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
         setReadTimestamp(channel);
+        // 是否是心跳消息
         if (isHeartbeatRequest(message)) {
             Request req = (Request) message;
+            // 如果是双向的
             if (req.isTwoWay()) {
+                // 返回的心跳包
                 Response res = new Response(req.getId(), req.getVersion());
                 res.setEvent(Response.HEARTBEAT_EVENT);
                 channel.send(res);
@@ -85,6 +88,7 @@ public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
             }
             return;
         }
+        // NettyServerHandler -> MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DecodeHandler -> HeaderExchangeHandler
         handler.received(channel, message);
     }
 

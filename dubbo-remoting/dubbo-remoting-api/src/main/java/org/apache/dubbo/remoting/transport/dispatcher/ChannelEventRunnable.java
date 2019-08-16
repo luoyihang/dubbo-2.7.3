@@ -52,8 +52,10 @@ public class ChannelEventRunnable implements Runnable {
 
     @Override
     public void run() {
-        if (state == ChannelState.RECEIVED) {
+        if (state == ChannelState.RECEIVED) { // 请求类型为 RECEIVED ，接受请求
             try {
+                // 调用下一步
+                // NettyServerHandler -> MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DecodeHandler -> HeaderExchangeHandler
                 handler.received(channel, message);
             } catch (Exception e) {
                 logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel

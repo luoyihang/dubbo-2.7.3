@@ -36,6 +36,7 @@ public class DecodeHandler extends AbstractChannelHandlerDelegate {
 
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
+        // 对消息进行解码（反序列化）
         if (message instanceof Decodeable) {
             decode(message);
         }
@@ -47,7 +48,7 @@ public class DecodeHandler extends AbstractChannelHandlerDelegate {
         if (message instanceof Response) {
             decode(((Response) message).getResult());
         }
-
+        // NettyServerHandler -> MultiMessageHandler -> HeartbeatHandler -> AllChannelHandler -> DecodeHandler -> HeaderExchangeHandler
         handler.received(channel, message);
     }
 

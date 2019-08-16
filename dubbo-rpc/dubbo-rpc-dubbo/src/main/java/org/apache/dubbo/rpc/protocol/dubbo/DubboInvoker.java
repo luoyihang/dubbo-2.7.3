@@ -88,17 +88,18 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
             currentClient = clients[index.getAndIncrement() % clients.length];
         }
         try {
-            // isOneway 表示当前方法是否存在返回值 true-不存在返回值 false-存在返回值
+            // isOneway 表示是否单向通信
             boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);
             // 超时时间
             int timeout = getUrl().getMethodPositiveParameter(methodName, TIMEOUT_KEY, DEFAULT_TIMEOUT);
-            // 不存在返回值
+            // 单项通信
             if (isOneway) {
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
                 currentClient.send(inv, isSent);
                 return AsyncRpcResult.newDefaultAsyncResult(invocation);
             } else {
                 AsyncRpcResult asyncRpcResult = new AsyncRpcResult(inv);
+                // 开始发送请求
                 // currentClient = ReferenceCountExchangeClient(HeaderExchangeClint(HeaderExchangeChannel()))
                 CompletableFuture<Object> responseFuture = currentClient.request(inv, timeout);
                 asyncRpcResult.subscribeTo(responseFuture);
